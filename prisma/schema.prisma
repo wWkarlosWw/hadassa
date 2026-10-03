@@ -1,0 +1,395 @@
+// Fundación Hadassa — esquema de datos (PostgreSQL en Supabase)
+//
+// La autenticación vive en Supabase Auth (schema `auth`). Cada usuario tiene un
+// `Profile` cuyo `id` es el mismo UUID de `auth.users`. Prisma gestiona solo el
+// schema `public`; el acceso desde el navegador está bloqueado con RLS y todo
+// pasa por el servidor (Server Components / Server Actions).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Usuarios ───────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  SUPERVISOR
+  ADMIN
+}
+
+model Profile {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  fullName  String   @map("full_name")
+  ci        String?  @unique
+  phone     String?
+  address   String?
+  avatarUrl String?  @map("avatar_url")
+  role      Role     @default(USER)
+  points    Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  donations            Donation[]           @relation("DonationDonor")
+  validatedDonations   Donation[]           @relation("DonationValidator")
+  participations       EventParticipation[] @relation("ParticipationUser")
+  validatedAttendances EventParticipation[] @relation("ParticipationValidator")
+  supervisedEvents     EventSupervisor[]
+  rewardClaims         RewardClaim[]        @relation("ClaimUser")
+  handledClaims        RewardClaim[]        @relation("ClaimHandler")
+  pointsTransactions   PointsTransaction[]  @relation("PointsOwner")
+  createdPointsEntries PointsTransaction[]  @relation("PointsAuthor")
+  projectUpdates       ProjectUpdate[]      @relation("UpdateAuthor")
+
+  @@index([role])
+  @@map("profiles")
+}
+
+// ─── Proyectos de la fundación (Casa de Fruto, Olor Fragante, …) ─────────────
+
+model Project {
+  id               String    @id @default(uuid()) @db.Uuid
+  slug             String    @unique
+  name             String
+  tagline          String    @default("")
+  description      String    @default("")
+  color            String    @default("#E3AAAA")
+  logoUrl          String?   @map("logo_url")
+  coverUrl         String?   @map("cover_url")
+  goal             Decimal?  @db.Decimal(12, 2)
+  beneficiaries    Int       @default(0)
+  // Campaña (estilo crowdfunding)
+  category         String    @default("")
+  location         String    @default("")
+  story            String    @default("")
+  endsAt           DateTime? @map("ends_at")
+  acceptsDonations Boolean   @default(true) @map("accepts_donations")
+  // Fundación principal ("donde más se necesite"): solo una a la vez.
+  isMain           Boolean   @default(false) @map("is_main")
+  featured         Boolean   @default(false)
+  isActive         Boolean   @default(true) @map("is_active")
+  sortOrder        Int       @default(0) @map("sort_order")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  events    Event[]
+  donations Donation[]
+  updates   ProjectUpdate[]
+
+  @@map("projects")
+}
+
+// Novedades de una campaña (timeline público).
+model ProjectUpdate {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  title     String
+  body      String   @default("")
+  imageUrl  String?  @map("image_url")
+  authorId  String?  @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  Profile? @relation("UpdateAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("project_updates")
+}
+
+// ─── Eventos / actividades ──────────────────────────────────────────────────
+
+enum ParticipationStatus {
+  REGISTERED
+  ATTENDED
+  CANCELLED
+}
+
+model Event {
+  id           String    @id @default(uuid()) @db.Uuid
+  title        String
+  description  String    @default("")
+  location     String    @default("")
+  imageUrl     String?   @map("image_url")
+  startsAt     DateTime  @map("starts_at")
+  endsAt       DateTime? @map("ends_at")
+  capacity     Int?
+  pointsReward Int       @default(50) @map("points_reward")
+  isActive     Boolean   @default(true) @map("is_active")
+  projectId    String?   @map("project_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  project        Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  participations EventParticipation[]
+  supervisors    EventSupervisor[]
+  donations      Donation[]
+
+  @@index([startsAt])
+  @@map("events")
+}
+
+model EventParticipation {
+  id            String              @id @default(uuid()) @db.Uuid
+  status        ParticipationStatus @default(REGISTERED)
+  profileId     String              @map("profile_id") @db.Uuid
+  eventId       String              @map("event_id") @db.Uuid
+  validatedById String?             @map("validated_by_id") @db.Uuid
+  validatedAt   DateTime?           @map("validated_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  profile     Profile  @relation("ParticipationUser", fields: [profileId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  validatedBy Profile? @relation("ParticipationValidator", fields: [validatedById], references: [id], onDelete: SetNull)
+
+  @@unique([profileId, eventId])
+  @@map("event_participations")
+}
+
+model EventSupervisor {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, eventId])
+  @@map("event_supervisors")
+}
+
+// ─── Donaciones ─────────────────────────────────────────────────────────────
+
+enum DonationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DonationMethod {
+  QR
+  TRANSFER
+  CASH
+  OTHER
+}
+
+model Donation {
+  id              String         @id @default(uuid()) @db.Uuid
+  amount          Decimal        @db.Decimal(12, 2)
+  currency        String         @default("BOB")
+  method          DonationMethod @default(QR)
+  status          DonationStatus @default(PENDING)
+  reference       String?
+  receiptPath     String?        @map("receipt_path")
+  note            String?
+  donorName       String?        @map("donor_name")
+  profileId       String?        @map("profile_id") @db.Uuid
+  projectId       String?        @map("project_id") @db.Uuid
+  eventId         String?        @map("event_id") @db.Uuid
+  validatedById   String?        @map("validated_by_id") @db.Uuid
+  validatedAt     DateTime?      @map("validated_at")
+  rejectionReason String?        @map("rejection_reason")
+  isAnonymous     Boolean        @default(false) @map("is_anonymous")
+  isRecurring     Boolean        @default(false) @map("is_recurring")
+  message         String?
+  messageHidden   Boolean        @default(false) @map("message_hidden")
+  pointsAwarded   Int            @default(0) @map("points_awarded")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  profile     Profile? @relation("DonationDonor", fields: [profileId], references: [id], onDelete: SetNull)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  validatedBy Profile? @relation("DonationValidator", fields: [validatedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([profileId])
+  @@index([projectId, status])
+  @@map("donations")
+}
+
+// ─── Recompensas (gamificación) ─────────────────────────────────────────────
+
+model Ally {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  description  String   @default("")
+  logoUrl      String?  @map("logo_url")
+  website      String?
+  contactEmail String?  @map("contact_email")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  rewards Reward[]
+
+  @@map("allies")
+}
+
+model Reward {
+  id              String    @id @default(uuid()) @db.Uuid
+  title           String
+  description     String    @default("")
+  code            String
+  discountPercent Int?      @map("discount_percent")
+  pointsCost      Int       @default(100) @map("points_cost")
+  stock           Int?
+  imageUrl        String?   @map("image_url")
+  expiresAt       DateTime? @map("expires_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  allyId          String?   @map("ally_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  ally   Ally?         @relation(fields: [allyId], references: [id], onDelete: SetNull)
+  claims RewardClaim[]
+
+  @@map("rewards")
+}
+
+enum ClaimStatus {
+  PENDING
+  REDEEMED
+  CANCELLED
+}
+
+model RewardClaim {
+  id          String      @id @default(uuid()) @db.Uuid
+  pointsSpent Int         @map("points_spent")
+  status      ClaimStatus @default(PENDING)
+  profileId   String      @map("profile_id") @db.Uuid
+  rewardId    String      @map("reward_id") @db.Uuid
+  handledById String?     @map("handled_by_id") @db.Uuid
+  handledAt   DateTime?   @map("handled_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  profile   Profile  @relation("ClaimUser", fields: [profileId], references: [id], onDelete: Cascade)
+  reward    Reward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  handledBy Profile? @relation("ClaimHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([profileId])
+  @@map("reward_claims")
+}
+
+// Libro mayor de puntos: cada movimiento queda auditado. `profiles.points` es
+// el saldo cacheado y siempre se actualiza en la misma transacción.
+enum PointsReason {
+  DONATION
+  ATTENDANCE
+  REDEMPTION
+  REFUND
+  ADJUSTMENT
+}
+
+model PointsTransaction {
+  id          String       @id @default(uuid()) @db.Uuid
+  profileId   String       @map("profile_id") @db.Uuid
+  amount      Int
+  reason      PointsReason
+  description String       @default("")
+  referenceId String?      @map("reference_id") @db.Uuid
+  createdById String?      @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  profile   Profile  @relation("PointsOwner", fields: [profileId], references: [id], onDelete: Cascade)
+  createdBy Profile? @relation("PointsAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([profileId, createdAt])
+  @@map("points_transactions")
+}
+
+// ─── CMS: contenido editable del sitio ──────────────────────────────────────
+
+// Bloques de texto/imagen por sección (inicio, nosotros, donar, contacto, …).
+// `value` es JSON validado con zod en `src/modules/cms`.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// Valores institucionales: se muestran como frutos del árbol de mirto.
+model CoreValue {
+  id          String  @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+
+  @@map("core_values")
+}
+
+// Áreas del organigrama (solo áreas, sin personas).
+model OrgArea {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String
+  description String @default("")
+  icon        String @default("heart")
+  color       String @default("#E3AAAA")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  @@map("org_areas")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  email     String
+  phone     String?
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("contact_messages")
+}
+
+// Páginas personalizadas creadas desde el CMS (editor por bloques).
+model Page {
+  id             String   @id @default(uuid()) @db.Uuid
+  slug           String   @unique
+  title          String
+  excerpt        String   @default("")
+  coverUrl       String?  @map("cover_url")
+  blocks         Json     @default("[]")
+  published      Boolean  @default(false)
+  showInNav      Boolean  @default(false) @map("show_in_nav")
+  showInFooter   Boolean  @default(false) @map("show_in_footer")
+  sortOrder      Int      @default(0) @map("sort_order")
+  seoTitle       String?  @map("seo_title")
+  seoDescription String?  @map("seo_description")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("pages")
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+}
+
+// Enlaces del menú principal y del pie de página.
+model MenuItem {
+  id           String       @id @default(uuid()) @db.Uuid
+  label        String
+  href         String
+  location     MenuLocation
+  sortOrder    Int          @default(0) @map("sort_order")
+  isVisible    Boolean      @default(true) @map("is_visible")
+  openInNewTab Boolean      @default(false) @map("open_in_new_tab")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@index([location, sortOrder])
+  @@map("menu_items")
+}

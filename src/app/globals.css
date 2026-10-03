@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/*
+ * Sistema de diseño — Fundación Hadassa
+ * Paleta oficial (maqueta): Palabras de Vida #8e9ace · En Espera #525a77 ·
+ * Rosado Hadassa #E3AAAA · Alimento Diario #7f5153 · Olor Fragante #b68286
+ */
+@theme {
+  /* Marca */
+  --color-rosa: #e3aaaa;
+  --color-rosa-50: #fcf4f4;
+  --color-rosa-100: #f8e6e6;
+  --color-rosa-200: #f1cfcf;
+  --color-rosa-300: #e3aaaa;
+  --color-rosa-500: #c97f7f;
+  --color-rosa-700: #9c5757;
+
+  --color-lavanda: #8e9ace;
+  --color-lavanda-50: #f2f4fb;
+  --color-lavanda-100: #e3e7f5;
+  --color-lavanda-300: #b3bce0;
+  --color-lavanda-600: #5f6aa8;
+  --color-lavanda-700: #4c5690;
+
+  --color-noche: #525a77;
+  --color-noche-700: #3d435b;
+  --color-noche-900: #262a3a;
+
+  --color-vino: #7f5153;
+  --color-vino-50: #f7f0f0;
+  --color-vino-700: #63393b;
+
+  --color-malva: #b68286;
+  --color-malva-100: #f2e6e7;
+
+  /* Neutros */
+  --color-crema: #faf6f5;
+  --color-papel: #ffffff;
+  --color-tinta: #2f2a33;
+  --color-tinta-suave: #6b6370;
+  --color-borde: #ece3e2;
+
+  /* Estados */
+  --color-exito: #4f8a6b;
+  --color-exito-50: #eef6f1;
+  --color-alerta: #b7791f;
+  --color-alerta-50: #fdf6e9;
+  --color-error: #b84a4a;
+  --color-error-50: #fbeeee;
+
+  /* Tipografía (variables definidas con next/font en el layout) */
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-rufina), ui-serif, Georgia, serif;
+  --font-script: var(--font-script), cursive;
+
+  --radius-card: 1.25rem;
+  --shadow-suave: 0 1px 2px rgb(47 42 51 / 0.04), 0 8px 24px -12px rgb(47 42 51 / 0.12);
+  --shadow-flor: 0 20px 50px -20px rgb(127 81 83 / 0.35);
+
+  --animate-fade-up: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-crema);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: var(--color-rosa-200);
+    color: var(--color-vino-700);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-lavanda-600);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Antetítulo espaciado, como en la maqueta */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  /* Subrayado corto bajo los antetítulos */
+  .rule-under {
+    position: relative;
+    padding-bottom: 0.6rem;
+  }
+  .rule-under::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 3.5rem;
+    height: 1px;
+    background: currentColor;
+    transform: translateX(-50%);
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

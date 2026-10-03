@@ -47,3 +47,18 @@ html/
 build/
 dist-ssr/
 *.local
+### Next.js ###
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+### Prisma ###
+src/generated/
+
+### Supabase ###
+supabase/.branches
+supabase/.temp
+
+### Claude Code (local) ###
+.claude/
