@@ -8,12 +8,13 @@ import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Role } from "../src/generated/prisma/client";
+import { env } from "../src/shared/lib/env";
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: env.directUrl }),
 });
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+const supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
@@ -144,8 +145,25 @@ const ORG_AREAS = [
   ["Educación", "Apoyo escolar y estimulación temprana en Casa de Fruto.", "graduation-cap", "#7f9a3c"],
 ] as const;
 
+// Mismos buckets que supabase/config.toml (en la nube no se crean solos).
+async function ensureBuckets() {
+  const buckets = [
+    { id: "media", public: true, allowedMimeTypes: ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"] },
+    { id: "receipts", public: false, allowedMimeTypes: ["image/png", "image/jpeg", "image/webp", "application/pdf"] },
+  ];
+  const { data: existing, error } = await supabase.storage.listBuckets();
+  if (error) throw error;
+  for (const { id, ...options } of buckets) {
+    if (existing.some((b) => b.id === id)) continue;
+    const { error } = await supabase.storage.createBucket(id, { ...options, fileSizeLimit: "10MB" });
+    if (error) throw error;
+  }
+}
+
 async function main() {
   console.log("🌸 Sembrando datos de Fundación Hadassa…");
+
+  await ensureBuckets();
 
   const admin = await ensureUser("admin@hadassa.org", "Administración Hadassa", "ADMIN", "70000001");
   const supervisor = await ensureUser("supervisor@hadassa.org", "Supervisora Hadassa", "SUPERVISOR", "70000002");

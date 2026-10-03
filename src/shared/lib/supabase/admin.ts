@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/shared/lib/env";
 
 /**
  * Cliente con service role: crea usuarios y sube archivos a Storage.
@@ -7,8 +8,8 @@ import { createClient } from "@supabase/supabase-js";
  */
 export function createSupabaseAdminClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    env.supabaseUrl,
+    env.supabaseServiceRoleKey,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 }

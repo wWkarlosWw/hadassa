@@ -1,14 +1,15 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { env } from "@/shared/lib/env";
 
 /** Cliente Supabase ligado a la sesión del usuario (cookies). */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.supabaseUrl,
+    env.supabaseAnonKey,
     {
       cookies: {
         getAll() {

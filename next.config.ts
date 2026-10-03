@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321");
+const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "http://127.0.0.1:54321");
 
 const nextConfig: NextConfig = {
   // Proyectos y donaciones son una sola sección: /donar.
