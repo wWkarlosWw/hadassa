@@ -24,6 +24,8 @@ lerna-debug.log*
 .pnpm-debug.log*
 dist/
 .env
+.env.production
+.env.development
 .env.local
 .env.development.local
 .env.test.local
